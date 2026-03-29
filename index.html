@@ -156,23 +156,42 @@
     }
 
     async function sendShare() {
-      const raw = document.getElementById("flexjson").value;
-      const alt = document.getElementById("altText").value.trim() || "Flex Message";
-      
-      try {
-        const parsed = JSON.parse(raw);
-        const msg = {
-          type: "flex",
-          altText: alt,
-          contents: parsed.contents || parsed
-        };
-
-        const result = await liff.shareTargetPicker([msg]);
-        if (result) alert("ส่งเรียบร้อยแล้ว!");
-      } catch (e) {
-        alert("JSON ไม่ถูกต้อง หรือแชร์ถูกยกเลิก");
-      }
+  const raw = document.getElementById("flexjson").value;
+  const alt = document.getElementById("altText").value.trim() || "ส่งรูปภาพ Flex Message";
+  
+  try {
+    // 1. แปลงตัวอักษร JSON ในช่อง Textarea ให้เป็น Object ของ JavaScript
+    const parsed = JSON.parse(raw);
+    
+    // 2. สร้างโครงสร้างข้อความแบบ Flex (นี่คือส่วนที่ทำให้ส่งเป็น "รูปภาพ" ไม่ใช่ "ข้อความ JSON")
+    let flexMessage;
+    
+    // ตรวจสอบว่าในช่อง JSON มีการใส่คลุมด้วย { "type": "flex", ... } ไว้หรือยัง
+    if (parsed.type === "flex") {
+      flexMessage = parsed;
+    } else {
+      // ถ้าไม่มี ให้สร้างโครงสร้างมาตรฐานของ LINE เพื่อส่งเป็นรูปภาพ
+      flexMessage = {
+        type: "flex",
+        altText: alt, // ข้อความที่จะเด้งแจ้งเตือนในมือถือเพื่อน
+        contents: parsed // ตัวเนื้อหา Flex (Bubble หรือ Carousel)
+      };
     }
+
+    // 3. สั่งให้ LINE เปิดหน้าเลือกเพื่อน/กลุ่ม เพื่อส่งรูปนี้ไป
+    const result = await liff.shareTargetPicker([flexMessage]);
+    
+    if (result) {
+      alert("ส่งรูปภาพให้เพื่อนเรียบร้อยแล้ว!");
+    } else {
+      console.log("ผู้ใช้ยกเลิกการเลือกเพื่อน");
+    }
+
+  } catch (e) {
+    console.error(e);
+    alert("ส่งไม่สำเร็จ: กรุณาเช็กว่าในช่อง JSON ปีกกา { } ครบถ้วนหรือไม่?");
+  }
+}
 
     function copyUrl() {
       const copyText = document.getElementById("demo");
