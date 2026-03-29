@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=0,viewport-fit=cover">
+  <title>CHATRI AYA - Flex Sender</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { padding: 20px; background-color: #f8f9fa; }
+    #previewArea {
+      border: 1px solid #ddd;
+      border-radius: 16px;
+      padding: 12px;
+      background: #f5f7fb;
+      min-height: 450px;
+      max-width: 380px;
+      overflow: auto;
+    }
+    .flex-bubble { background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 6px 14px rgba(0,0,0,0.08); margin-bottom: 16px; }
+    .flex-hero img { width: 100%; display: block; }
+    .section { padding: 12px; }
+    .flex-footer { border-top: 1px solid #eee; }
+    .box { display: flex; gap: 8px; }
+    .box.vertical { flex-direction: column; }
+    .box.horizontal { flex-direction: row; align-items: center; }
+    .t-md { font-size: 16px; }
+    .btn-flex { display: inline-block; padding: 10px 14px; border-radius: 10px; text-decoration: none; border: 1px solid #0d6efd; color: #0d6efd; text-align: center; }
+    .btn-flex.primary { background: #0d6efd; color: #fff; }
+    .loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); z-index: 9999; justify-content: center; align-items: center; }
+  </style>
+</head>
+<body>
+
+  <div id="loader" class="loading-overlay">
+    <div class="spinner-border text-primary"></div>
+    <span class="ms-2">กำลังโหลดข้อมูล...</span>
+  </div>
+
+  <div class="container-fluid">
+    <div class="row g-4">
+      <div class="col-md-7">
+        <h4 class="mb-3">LINE Flex Editor</h4>
+        
+        <div class="mb-3">
+          <label class="form-label">JSON Flex Message</label>
+          <textarea class="form-control" id="flexjson" rows="12" style="font-family: monospace; font-size: 13px;">{
+  "type": "bubble",
+  "hero": {
+    "type": "image",
+    "url": "https://raw.githubusercontent.com/gunttri2567/triliff2025/refs/heads/branch/images/1035089.jpg",
+    "size": "full",
+    "aspectRatio": "20:13",
+    "aspectMode": "cover"
+  },
+  "body": {
+    "type": "box",
+    "layout": "vertical",
+    "contents": [
+      { "type": "text", "text": "หัวข้อรูปภาพ", "weight": "bold", "size": "xl" }
+    ]
+  }
+}</textarea>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">ข้อความแจ้งเตือน (Alt Text)</label>
+          <input type="text" class="form-control" id="altText" placeholder="แสดงในหน้าแชทตอนรูปยังไม่โหลด">
+        </div>
+
+        <div class="input-group mb-4">
+          <input type="text" class="form-control" id="demo" readonly placeholder="URL สำหรับแชร์จะปรากฏที่นี่">
+          <button class="btn btn-outline-primary" type="button" onclick="copyUrl()">Copy URL</button>
+        </div>
+
+        <div class="d-grid gap-2 d-md-flex">
+          <button class="btn btn-success px-4" onclick="saveShare()">1. บันทึกและสร้างลิงก์ (Save)</button>
+          <button class="btn btn-primary px-4" onclick="sendShare()">2. ส่งให้เพื่อน (Share)</button>
+          <button class="btn btn-secondary" onclick="previewFlex()">ดูตัวอย่าง (Preview)</button>
+        </div>
+      </div>
+
+      <div class="col-md-5">
+        <h4 class="mb-3">Preview</h4>
+        <div id="previewArea">
+          <p class="text-muted text-center mt-5">กรุณากดปุ่ม Preview เพื่อดูผลลัพธ์</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script>
+    // --- ตั้งค่าเริ่มต้น ---
+    const LIFF_ID = "2009633816-crfLn3Pp"; 
+    const xurl = "https://script.google.com/macros/s/AKfycbxNTDK09ohAwoJYeXIOqJuOl3GHNX1G42BjI-GWevXZD9LnZhAITSFExvsG7S-vVO9L7A/exec"; // <--- นำ URL จาก Google Apps Script มาใส่ตรงนี้
+
+    // --- ฟังก์ชันช่วยเหลือ (Encoding ภาษาไทย) ---
+    function utf8_to_b64(str) { return window.btoa(unescape(encodeURIComponent(str))); }
+    function b64_to_utf8(str) { return decodeURIComponent(escape(window.atob(str))); }
+
+    // --- ฟังก์ชันหลัก ---
+    async function main() {
+      try {
+        await liff.init({ liffId: LIFF_ID });
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+
+        // ตรวจสอบว่าเปิดมาจากลิงก์ที่มี flexid หรือไม่
+        const urlParams = new URLSearchParams(window.location.search);
+        const flexId = urlParams.get('flexid');
+
+        if (flexId) {
+          showLoader(true);
+          try {
+            const response = await fetch(`${xurl}?flexid=${flexId}`);
+            const data = await response.json();
+            if (data && data.desc) {
+              document.getElementById('flexjson').value = b64_to_utf8(data.desc);
+              previewFlex();
+            }
+          } catch (e) {
+            console.error("ดึงข้อมูลไม่สำเร็จ:", e);
+          }
+          showLoader(false);
+        }
+      } catch (err) {
+        console.error("LIFF Init Error:", err);
+      }
+    }
+
+    async function saveShare() {
+      const sflex = document.getElementById("flexjson").value;
+      if(!sflex) return alert("กรุณาใส่ JSON");
+      
+      showLoader(true);
+      const code = utf8_to_b64(sflex);
+      const lid = "id" + Date.now();
+      
+      // สร้าง URL สำหรับเปิดแอปนี้ใหม่พร้อม flexid
+      const shareUrl = `https://liff.line.me/${LIFF_ID}/?flexid=${lid}`;
+      document.getElementById("demo").value = shareUrl;
+
+      try {
+        await fetch(xurl, {
+          method: "POST",
+          body: JSON.stringify({ "lid": lid, "desc": code }),
+          headers: { "Content-Type": "text/plain;charset=utf-8" }
+        });
+        alert("บันทึกข้อมูลเรียบร้อย! คุณสามารถ Copy URL ไปใช้ได้เลย");
+      } catch (e) {
+        alert("การบันทึกล้มเหลว กรุณาตรวจสอบ Web App URL");
+      }
+      showLoader(false);
+    }
+
+    async function sendShare() {
+      const raw = document.getElementById("flexjson").value;
+      const alt = document.getElementById("altText").value.trim() || "Flex Message";
+      
+      try {
+        const parsed = JSON.parse(raw);
+        const msg = {
+          type: "flex",
+          altText: alt,
+          contents: parsed.contents || parsed
+        };
+
+        const result = await liff.shareTargetPicker([msg]);
+        if (result) alert("ส่งเรียบร้อยแล้ว!");
+      } catch (e) {
+        alert("JSON ไม่ถูกต้อง หรือแชร์ถูกยกเลิก");
+      }
+    }
+
+    function copyUrl() {
+      const copyText = document.getElementById("demo");
+      if(!copyText.value) return alert("กรุณากดปุ่ม Save ก่อน");
+      copyText.select();
+      document.execCommand("copy");
+      alert("คัดลอกลิงก์แล้ว: " + copyText.value);
+    }
+
+    function showLoader(show) {
+      document.getElementById('loader').style.display = show ? 'flex' : 'none';
+    }
+
+    // --- ส่วนการ Render Preview (ตัดมาเฉพาะส่วนสำคัญ) ---
+    function previewFlex() {
+      const preview = document.getElementById('previewArea');
+      try {
+        const raw = document.getElementById('flexjson').value;
+        const json = JSON.parse(raw);
+        const contents = (json.type === 'flex') ? json.contents : json;
+        
+        preview.innerHTML = '';
+        if (contents.type === 'bubble') {
+          preview.appendChild(renderBubble(contents));
+        } else if (contents.type === 'carousel') {
+          contents.contents.forEach(b => preview.appendChild(renderBubble(b)));
+        }
+      } catch (e) {
+        preview.innerHTML = `<p class="text-danger">JSON รูปแบบไม่ถูกต้อง</p>`;
+      }
+    }
+
+    // (รวมฟังก์ชัน renderBubble และ renderComponent จากโค้ดเดิมของคุณไว้ที่นี่ได้เลยครับ)
+    function renderBubble(bubble) {
+      const wrap = document.createElement('div'); wrap.className = 'flex-bubble';
+      if (bubble.hero) wrap.appendChild(renderImg(bubble.hero));
+      if (bubble.body) { 
+        const sec = document.createElement('div'); sec.className = 'section'; 
+        sec.innerHTML = `<div class="t-md"><b>${bubble.body.contents[0].text || ''}</b></div>`;
+        wrap.appendChild(sec); 
+      }
+      return wrap;
+    }
+    function renderImg(node) {
+      const div = document.createElement('div'); div.className='flex-hero';
+      const img = document.createElement('img'); img.src = node.url;
+      div.appendChild(img); return div;
+    }
+
+    main();
+  </script>
+</body>
+</html>
