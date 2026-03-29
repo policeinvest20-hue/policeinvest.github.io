@@ -19,13 +19,7 @@
     .flex-bubble { background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 6px 14px rgba(0,0,0,0.08); margin-bottom: 16px; }
     .flex-hero img { width: 100%; display: block; }
     .section { padding: 12px; }
-    .flex-footer { border-top: 1px solid #eee; }
-    .box { display: flex; gap: 8px; }
-    .box.vertical { flex-direction: column; }
-    .box.horizontal { flex-direction: row; align-items: center; }
     .t-md { font-size: 16px; }
-    .btn-flex { display: inline-block; padding: 10px 14px; border-radius: 10px; text-decoration: none; border: 1px solid #0d6efd; color: #0d6efd; text-align: center; }
-    .btn-flex.primary { background: #0d6efd; color: #fff; }
     .loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); z-index: 9999; justify-content: center; align-items: center; }
   </style>
 </head>
@@ -62,7 +56,7 @@
 
         <div class="mb-3">
           <label class="form-label">ข้อความแจ้งเตือน (Alt Text)</label>
-          <input type="text" class="form-control" id="altText" placeholder="แสดงในหน้าแชทตอนรูปยังไม่โหลด">
+          <input type="text" class="form-control" id="altText" placeholder="ข้อความนี้จะถูกบันทึกไปพร้อมกับลิงก์">
         </div>
 
         <div class="input-group mb-4">
@@ -112,6 +106,10 @@
             const data = await response.json();
             if (data && data.desc) {
               document.getElementById('flexjson').value = b64_to_utf8(data.desc);
+              // ดึงค่า alt กลับมาแสดงในช่อง Input
+              if(data.alt) {
+                document.getElementById('altText').value = data.alt;
+              }
               previewFlex();
             }
           } catch (e) {
@@ -126,6 +124,7 @@
 
     async function saveShare() {
       const sflex = document.getElementById("flexjson").value;
+      const salt = document.getElementById("altText").value; // ดึงค่า altText
       if(!sflex) return alert("กรุณาใส่ JSON");
       
       showLoader(true);
@@ -138,10 +137,10 @@
       try {
         await fetch(xurl, {
           method: "POST",
-          body: JSON.stringify({ "lid": lid, "desc": code }),
+          body: JSON.stringify({ "lid": lid, "desc": code, "alt": salt }), // ส่ง alt ไปบันทึกด้วย
           headers: { "Content-Type": "text/plain;charset=utf-8" }
         });
-        alert("บันทึกเรียบร้อย! ส่งต่อลิงก์ด้านบนให้เพื่อนได้เลย");
+        alert("บันทึกข้อมูลและ Alt Text เรียบร้อย!");
       } catch (e) {
         alert("บันทึกล้มเหลว");
       }
@@ -166,7 +165,7 @@
       if(!copyText.value) return alert("กรุณากด Save ก่อน");
       copyText.select();
       document.execCommand("copy");
-      alert("คัดลอกลิงก์แล้ว");
+      alert("คัดลอกลิงก์เรียบร้อย");
     }
 
     function showLoader(show) {
@@ -195,8 +194,8 @@
       if (bubble.hero) wrap.appendChild(renderImg(bubble.hero));
       if (bubble.body) { 
         const sec = document.createElement('div'); sec.className = 'section'; 
-        const txt = bubble.body.contents.find(c => c.type === 'text');
-        sec.innerHTML = `<div class="t-md"><b>${txt ? txt.text : 'Flex Message'}</b></div>`;
+        const txt = (bubble.body.contents && bubble.body.contents[0]) ? bubble.body.contents[0].text : 'Flex Message';
+        sec.innerHTML = `<div class="t-md"><b>${txt || ''}</b></div>`;
         wrap.appendChild(sec); 
       }
       return wrap;
