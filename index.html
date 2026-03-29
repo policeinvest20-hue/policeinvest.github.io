@@ -42,22 +42,20 @@
         <h4 class="mb-3">LINE Flex Editor</h4>
         
         <div class="mb-3">
-          <label class="form-label">JSON Flex Message</label>
-          <textarea class="form-control" id="flexjson" rows="12" style="font-family: monospace; font-size: 13px;">{
+          <label class="form-label">JSON Flex Message (แก้ไข URL รูปและลิงก์ได้ที่นี่)</label>
+          <textarea class="form-control" id="flexjson" rows="15" style="font-family: monospace; font-size: 13px;">{
   "type": "bubble",
+  "size": "giga",
   "hero": {
     "type": "image",
     "url": "https://raw.githubusercontent.com/gunttri2567/triliff2025/refs/heads/branch/images/1035089.jpg",
     "size": "full",
-    "aspectRatio": "20:13",
-    "aspectMode": "cover"
-  },
-  "body": {
-    "type": "box",
-    "layout": "vertical",
-    "contents": [
-      { "type": "text", "text": "หัวข้อรูปภาพ", "weight": "bold", "size": "xl" }
-    ]
+    "aspectRatio": "1108:1478",
+    "aspectMode": "cover",
+    "action": {
+      "type": "uri",
+      "uri": "https://raw.githubusercontent.com/gunttri2567/triliff2025/refs/heads/branch/images/1035089.jpg"
+    }
   }
 }</textarea>
         </div>
@@ -90,15 +88,12 @@
 
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <script>
-    // --- ตั้งค่าเริ่มต้น ---
     const LIFF_ID = "2009633816-crfLn3Pp"; 
-    const xurl = "https://script.google.com/macros/s/AKfycbxNTDK09ohAwoJYeXIOqJuOl3GHNX1G42BjI-GWevXZD9LnZhAITSFExvsG7S-vVO9L7A/exec"; // <--- นำ URL จาก Google Apps Script มาใส่ตรงนี้
+    const xurl = "https://script.google.com/macros/s/AKfycbxNTDK09ohAwoJYeXIOqJuOl3GHNX1G42BjI-GWevXZD9LnZhAITSFExvsG7S-vVO9L7A/exec";
 
-    // --- ฟังก์ชันช่วยเหลือ (Encoding ภาษาไทย) ---
     function utf8_to_b64(str) { return window.btoa(unescape(encodeURIComponent(str))); }
     function b64_to_utf8(str) { return decodeURIComponent(escape(window.atob(str))); }
 
-    // --- ฟังก์ชันหลัก ---
     async function main() {
       try {
         await liff.init({ liffId: LIFF_ID });
@@ -107,7 +102,6 @@
           return;
         }
 
-        // ตรวจสอบว่าเปิดมาจากลิงก์ที่มี flexid หรือไม่
         const urlParams = new URLSearchParams(window.location.search);
         const flexId = urlParams.get('flexid');
 
@@ -138,7 +132,6 @@
       const code = utf8_to_b64(sflex);
       const lid = "id" + Date.now();
       
-      // สร้าง URL สำหรับเปิดแอปนี้ใหม่พร้อม flexid
       const shareUrl = `https://liff.line.me/${LIFF_ID}/?flexid=${lid}`;
       document.getElementById("demo").value = shareUrl;
 
@@ -148,71 +141,44 @@
           body: JSON.stringify({ "lid": lid, "desc": code }),
           headers: { "Content-Type": "text/plain;charset=utf-8" }
         });
-        alert("บันทึกข้อมูลเรียบร้อย! คุณสามารถ Copy URL ไปใช้ได้เลย");
+        alert("บันทึกเรียบร้อย! ส่งต่อลิงก์ด้านบนให้เพื่อนได้เลย");
       } catch (e) {
-        alert("การบันทึกล้มเหลว กรุณาตรวจสอบ Web App URL");
+        alert("บันทึกล้มเหลว");
       }
       showLoader(false);
     }
 
     async function sendShare() {
-  const raw = document.getElementById("flexjson").value;
-  const alt = document.getElementById("altText").value.trim() || "ส่งรูปภาพ Flex Message";
-  
-  try {
-    // 1. แปลงตัวอักษร JSON ในช่อง Textarea ให้เป็น Object ของ JavaScript
-    const parsed = JSON.parse(raw);
-    
-    // 2. สร้างโครงสร้างข้อความแบบ Flex (นี่คือส่วนที่ทำให้ส่งเป็น "รูปภาพ" ไม่ใช่ "ข้อความ JSON")
-    let flexMessage;
-    
-    // ตรวจสอบว่าในช่อง JSON มีการใส่คลุมด้วย { "type": "flex", ... } ไว้หรือยัง
-    if (parsed.type === "flex") {
-      flexMessage = parsed;
-    } else {
-      // ถ้าไม่มี ให้สร้างโครงสร้างมาตรฐานของ LINE เพื่อส่งเป็นรูปภาพ
-      flexMessage = {
-        type: "flex",
-        altText: alt, // ข้อความที่จะเด้งแจ้งเตือนในมือถือเพื่อน
-        contents: parsed // ตัวเนื้อหา Flex (Bubble หรือ Carousel)
-      };
+      const raw = document.getElementById("flexjson").value;
+      const alt = document.getElementById("altText").value.trim() || "ส่งรูปภาพ";
+      try {
+        const parsed = JSON.parse(raw);
+        let flexMessage = (parsed.type === "flex") ? parsed : { type: "flex", altText: alt, contents: parsed };
+        const result = await liff.shareTargetPicker([flexMessage]);
+        if (result) alert("ส่งรูปภาพเรียบร้อยแล้ว!");
+      } catch (e) {
+        alert("JSON ไม่ถูกต้อง หรือลืมเปิดสิทธิ์ Share Target Picker");
+      }
     }
-
-    // 3. สั่งให้ LINE เปิดหน้าเลือกเพื่อน/กลุ่ม เพื่อส่งรูปนี้ไป
-    const result = await liff.shareTargetPicker([flexMessage]);
-    
-    if (result) {
-      alert("ส่งรูปภาพให้เพื่อนเรียบร้อยแล้ว!");
-    } else {
-      console.log("ผู้ใช้ยกเลิกการเลือกเพื่อน");
-    }
-
-  } catch (e) {
-    console.error(e);
-    alert("ส่งไม่สำเร็จ: กรุณาเช็กว่าในช่อง JSON ปีกกา { } ครบถ้วนหรือไม่?");
-  }
-}
 
     function copyUrl() {
       const copyText = document.getElementById("demo");
-      if(!copyText.value) return alert("กรุณากดปุ่ม Save ก่อน");
+      if(!copyText.value) return alert("กรุณากด Save ก่อน");
       copyText.select();
       document.execCommand("copy");
-      alert("คัดลอกลิงก์แล้ว: " + copyText.value);
+      alert("คัดลอกลิงก์แล้ว");
     }
 
     function showLoader(show) {
       document.getElementById('loader').style.display = show ? 'flex' : 'none';
     }
 
-    // --- ส่วนการ Render Preview (ตัดมาเฉพาะส่วนสำคัญ) ---
     function previewFlex() {
       const preview = document.getElementById('previewArea');
       try {
         const raw = document.getElementById('flexjson').value;
         const json = JSON.parse(raw);
         const contents = (json.type === 'flex') ? json.contents : json;
-        
         preview.innerHTML = '';
         if (contents.type === 'bubble') {
           preview.appendChild(renderBubble(contents));
@@ -224,20 +190,23 @@
       }
     }
 
-    // (รวมฟังก์ชัน renderBubble และ renderComponent จากโค้ดเดิมของคุณไว้ที่นี่ได้เลยครับ)
     function renderBubble(bubble) {
       const wrap = document.createElement('div'); wrap.className = 'flex-bubble';
       if (bubble.hero) wrap.appendChild(renderImg(bubble.hero));
       if (bubble.body) { 
         const sec = document.createElement('div'); sec.className = 'section'; 
-        sec.innerHTML = `<div class="t-md"><b>${bubble.body.contents[0].text || ''}</b></div>`;
+        const txt = bubble.body.contents.find(c => c.type === 'text');
+        sec.innerHTML = `<div class="t-md"><b>${txt ? txt.text : 'Flex Message'}</b></div>`;
         wrap.appendChild(sec); 
       }
       return wrap;
     }
+
     function renderImg(node) {
       const div = document.createElement('div'); div.className='flex-hero';
-      const img = document.createElement('img'); img.src = node.url;
+      const img = document.createElement('img'); 
+      img.src = node.url;
+      img.style.aspectRatio = node.aspectRatio ? node.aspectRatio.replace(':', '/') : 'auto';
       div.appendChild(img); return div;
     }
 
